@@ -93,8 +93,42 @@ module Mongoid
       def scroll_field_type(criteria)
         scroll_field = scroll_field(criteria)
         field = criteria.klass.fields[scroll_field.to_s]
-        field.foreign_key? && field.object_id_field? ? BSON::ObjectId : field.type
+
+        return field_type(field) if field
+
+        parts = scroll_field.to_s.split('.')
+        klass = criteria.klass
+
+        parts.each_with_index do |part, index|
+          field = klass.fields[part]
+
+          if field
+            klass = field.options[:type] if index < parts.size - 1 && field.options[:type]&.include?(Mongoid::Document)
+            next
+          end
+
+          relation = klass.relations[part.to_s]
+          if relation&.embedded?
+            klass = relation.klass
+            next
+          end
+
+          raise ArgumentError, "Scroll field '#{scroll_field}' not found in #{criteria.klass} (stuck at '#{part}')"
+        end
+
+        raise ArgumentError, "Scroll field '#{scroll_field}' not found in #{criteria.klass}" unless field
+
+        field_type(field)
       end
+
+      def field_type(field)
+        if field.respond_to?(:foreign_key?) && field.foreign_key? && field.object_id_field?
+          BSON::ObjectId
+        else
+          field.type
+        end
+      end
+
     end
   end
 end
