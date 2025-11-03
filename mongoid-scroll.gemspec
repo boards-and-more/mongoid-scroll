@@ -14,6 +14,6 @@ Gem::Specification.new do |s|
   s.licenses = ['MIT']
   s.summary = 'Mongoid extensions to enable infinite scroll.'
   s.add_dependency 'i18n'
-  s.add_dependency 'mongoid', '>= 6.0'
+  s.add_dependency 'mongoid', '>= 7.0'
   s.metadata['rubygems_mfa_required'] = 'true'
 end
