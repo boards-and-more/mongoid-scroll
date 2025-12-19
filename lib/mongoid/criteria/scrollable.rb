@@ -38,7 +38,10 @@ module Mongoid
       end
 
       def multiple_sort_fields?
-        options.sort && options.sort.keys.size != 1
+        return false unless options.sort
+        return false if options.sort.values.first.is_a?(Hash) && options.sort.values.first.key?('$meta') && options.sort.keys.size <= 2
+
+        options.sort.keys.size != 1
       end
 
       def no_sort_option?
@@ -50,11 +53,19 @@ module Mongoid
       end
 
       def scroll_field(criteria)
-        criteria.options.sort.keys.first
+        sort_key = criteria.options.sort.keys.first
+
+        return '_id' if criteria.options.sort[sort_key].is_a?(Hash) && criteria.options.sort[sort_key].key?('$meta')
+
+        sort_key
       end
 
       def scroll_direction(criteria)
-        criteria.options.sort.values.first.to_i
+        sort_value = criteria.options.sort.values.first
+
+        return 1 if sort_value.is_a?(Hash) && sort_value.key?('$meta')
+
+        sort_value.to_i
       end
 
       def build_cursor_options(criteria)
@@ -72,6 +83,7 @@ module Mongoid
       def find_records(criteria, cursor)
         cursor_criteria = criteria.dup
         cursor_criteria.selector = { '$and' => [criteria.selector, cursor.criteria] }
+
         if cursor.type == :previous
           pipeline = [
             { '$match' => cursor_criteria.selector },
@@ -81,8 +93,10 @@ module Mongoid
           ]
           aggregation = cursor_criteria.view.aggregate(pipeline)
           aggregation.map { |record| Mongoid::Factory.from_db(cursor_criteria.klass, record) }
+
         else
-          cursor_criteria.order_by(_id: scroll_direction(criteria))
+          cursor_criteria = cursor_criteria.order_by(_id: scroll_direction(criteria))
+          cursor_criteria
         end
       end
 
