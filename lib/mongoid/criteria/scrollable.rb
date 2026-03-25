@@ -116,6 +116,8 @@ module Mongoid
         parts.each_with_index do |part, index|
           field = klass.fields[part]
 
+          break if field&.localized?
+
           if field
             klass = field.options[:type] if index < parts.size - 1 && field.options[:type]&.include?(Mongoid::Document)
             next
